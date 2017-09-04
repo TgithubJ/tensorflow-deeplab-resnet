@@ -21,8 +21,8 @@ from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, inv_p
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
-BATCH_SIZE = 4
-DATA_DIRECTORY = '/home/VOCdevkit'
+BATCH_SIZE = 2
+DATA_DIRECTORY = '/Users/i859032/images/Red_Bull/512X512/data/train'
 DATA_LIST_PATH = './dataset/train.txt'
 IGNORE_LABEL = 255
 INPUT_SIZE = '321,321'
@@ -30,7 +30,7 @@ LEARNING_RATE = 1e-4
 NUM_CLASSES = 21
 NUM_STEPS = 20000
 RANDOM_SEED = 1234
-RESTORE_FROM = './deeplab_resnet.ckpt'
+RESTORE_FROM = './deeplab_resnet_init.ckpt'
 SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 100
 SNAPSHOT_DIR = './snapshots_finetune/'
@@ -178,7 +178,7 @@ def main():
     sess.run(init)
     
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=40)
+    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=1)
     
     # Load variables if the checkpoint is provided.
     if args.restore_from is not None:
