@@ -22,9 +22,9 @@ import numpy as np
 
 from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label
 
+IMG_RGB_MEAN = np.array([71.61794271, 78.70845457, 56.54645427], dtype=np.float32)
+IMG_RGB_STD = np.array([29.02917546, 26.41235474, 22.43456377], dtype=np.float32)
 
-IMG_RGB_MEAN = np.array([104.42819731, 111.76448516, 125.9762497], dtype=np.float32)
-IMG_BGR_MEAN = np.array([125.9762497, 111.76448516, 104.42819731], dtype=np.float32)
 BATCH_SIZE = 2
 DATA_DIRECTORY = '/Users/i859032/images/Red_Bull/512X512/data/train'
 # DATA_DIRECTORY = '../../../data/redbull/train'
@@ -33,7 +33,6 @@ IGNORE_LABEL = 255
 INPUT_SIZE = '512,512'
 LEARNING_RATE = 2.5e-4
 MOMENTUM = 0.9
-NUM_CLASSES = 3
 NUM_STEPS = 500000
 POWER = 0.9
 RANDOM_SEED = 1234
@@ -45,6 +44,7 @@ SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
 CROP_SIZE = 512
 SCALE_SIZE = 544
+NUM_CLASSES = 2
 
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
@@ -167,7 +167,9 @@ def load_examples(args):
         # break apart image pair and move to range [-1, 1]
         width = tf.shape(raw_input)[1] # [height, width, channels]
         # raw_input[:,:width//2,:] -= IMG_MEAN
-        img = tf.cast(raw_input[:,:width//2,:], tf.float32) - IMG_RGB_MEAN
+        # img = tf.cast(raw_input[:,:width//2,:], tf.float32) - IMG_RGB_MEAN
+        img = (tf.cast(raw_input[:,:width//2,:], dtype=tf.float32) - IMG_RGB_MEAN)/IMG_RGB_STD
+
         img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
         a_images = tf.concat(axis=2, values=[img_b, img_g, img_r])
 
@@ -327,20 +329,25 @@ def main():
     raw_output_up = tf.argmax(raw_output_up, dimension=3)
     pred = tf.expand_dims(raw_output_up, dim=3, name="final_output")
 
-    def depreprocess(image_BGR, num_images, img_mean):
-        _, h, w, c = image_BGR.shape
-        
-        outputs = []        
+    def depreprocess(image_BGR, num_images, img_mean, img_std):
+        b, h, w, c = image_batch.shape
+        outputs = []
+        if num_images > b:
+            num_images = b
+
         for i in range(num_images):
             input_RGB = image_BGR[i][:,:,::-1]
-            input_plus_mean = input_RGB + img_mean
+            input_plus_mean = img_std * input_RGB + img_mean
             input_casted = tf.cast(input_plus_mean, tf.uint8)
             outputs.append(input_casted)
         return tf.stack(outputs)
 
     # reverse any processing on images so they can be written to disk or displayed to user
     with tf.name_scope("convert_inputs"):
-        converted_inputs = depreprocess(image_batch, args.save_num_images, IMG_RGB_MEAN)        
+        converted_inputs = depreprocess(image_batch, 
+                                        num_images=args.save_num_images, 
+                                        img_mean=IMG_RGB_MEAN, 
+                                        img_std=IMG_RGB_STD)
 
     with tf.name_scope("convert_targets"):
         # targets = tf.expand_dims(label_batch, axis=-1)
